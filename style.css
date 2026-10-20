@@ -271,3 +271,72 @@ footer p{margin:0}
   .js .reveal{opacity:1;transform:none}
   .timeline::before{transform:none}
 }
+
+/* ===== Refinement layer: paste at the VERY END of your existing stylesheet ===== */
+
+/* One new accent: rhododendron red (Nepal's national flower) against your forest green */
+:root{--accent:#a62c43;--accent-lit:#f08a9a;--hair:#d9e0d8}
+html[data-theme="dark"]{--accent:#f08a9a;--hair:#34413a}
+::selection{background:var(--accent);color:var(--paper)}
+:focus-visible{outline-color:var(--accent)}
+
+/* Type: tighter, calmer headings; sentence-case labels instead of tracked-out caps */
+h1,h2,h3{text-wrap:balance;font-optical-sizing:auto}
+p{text-wrap:pretty}
+h2{font-weight:500;letter-spacing:-.035em}
+.hero h1{font-weight:500;letter-spacing:-.045em;line-height:1.02}
+.top nav a,.kicker,.meta,.profile-label,.facts dt,.when{text-transform:none;letter-spacing:.01em}
+.top nav a{font-size:.92rem;font-weight:600}
+.kicker{font-size:.95rem}
+.meta,.when,.profile-label,.facts dt,.leadership-copy .meta{font-size:.88rem}
+.top nav a::after{background:var(--accent-lit)}
+@media (max-width:760px){.top nav a{font-size:.8rem}}
+@media (min-width:761px) and (max-width:1120px){.top nav a{font-size:.82rem}}
+
+/* Hero: the one bold move. Arch-shaped portrait (a doorway, echoing the ridgelines) + one red call to action */
+.hero-portrait{border:0;border-radius:999px 999px 20px 20px;box-shadow:none;outline:1px solid rgba(240,138,154,.55);outline-offset:14px}
+.kicker::before{background:var(--accent-lit)}
+.primary{background:#c23a54;color:#fff;box-shadow:0 14px 30px -10px rgba(194,58,84,.55)}
+.primary:hover{background:#d24862;box-shadow:0 18px 34px -10px rgba(194,58,84,.65)}
+
+/* Everything else stays quiet: flat hairline cards, one radius, no stacked shadows */
+.profile-card,.leadership-entry,.query-form-wrap,.inbox-login,.inbox-query{border-radius:10px;box-shadow:none;border-color:var(--hair);background:rgba(255,255,255,.55)}
+.leadership-number{display:none}
+.leadership-entry{grid-template-columns:1fr;border-left:3px solid var(--hair)}
+.leadership-entry:hover{transform:none;box-shadow:none;border-color:var(--hair);border-left-color:var(--accent)}
+.chips li:hover,.tags li:hover{transform:none;box-shadow:none;background:var(--ink);color:var(--paper);border-color:var(--ink)}
+
+/* Accent used only where it carries meaning: dates, labels, the current item, open states */
+.meta,.when{color:var(--accent)}
+.row:hover h3{color:var(--accent)}
+.row::after{background:linear-gradient(90deg,var(--accent),transparent)}
+.timeline::before{background:linear-gradient(180deg,var(--accent),rgba(84,112,92,.2))}
+.item:first-child::before{background:var(--accent)}
+.faq-list summary:hover,.faq-list details[open] summary,.faq-list summary::after{color:var(--accent)}
+.query-form input:focus,.query-form textarea:focus,.inbox-login input:focus,.reply-form textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 22%,transparent)}
+.links a{background-image:linear-gradient(var(--accent-lit),var(--accent-lit))}
+.links .social-link:hover{border-color:var(--accent-lit)}
+
+/* Warm beige leftovers -> green-tinted neutrals */
+.query-form input,.query-form textarea,.inbox-login input,.reply-form textarea{border-color:#cfd8cf}
+.query-badge{background:#e6ece4;color:#2f4637}
+.reply-entry{background:#f1f4ef}
+
+/* Calmer reveal: short fade-up only (no blur/scale) */
+.js .reveal{filter:none;transform:translateY(10px);transition:opacity .6s var(--ease),transform .6s var(--ease);transition-delay:var(--d,0s)}
+
+/* Dark mode: the old #242220 was brown against a green page; use green surfaces */
+html[data-theme="dark"] .profile-card,
+html[data-theme="dark"] .leadership-entry,
+html[data-theme="dark"] .query-form-wrap,
+html[data-theme="dark"] .inbox-login,
+html[data-theme="dark"] .inbox-query,
+html[data-theme="dark"] .chips li,
+html[data-theme="dark"] .tags li,
+html[data-theme="dark"] .inbox-toolbar button,
+html[data-theme="dark"] .query-action.secondary,
+html[data-theme="dark"] .skip{background:#1f2924;border-color:var(--hair)}
+html[data-theme="dark"] .leadership-entry:hover{border-left-color:var(--accent)}
+html[data-theme="dark"] .chips li:hover,
+html[data-theme="dark"] .tags li:hover{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+html[data-theme="dark"] .when{color:var(--accent)}
