@@ -133,7 +133,22 @@ async function sendEmail(env, email) {
     body: JSON.stringify(email)
   });
   if (!response.ok) {
-    console.error('Email provider returned status', response.status);
+    let providerError = {};
+    try {
+      providerError = await response.json();
+    } catch (error) {
+      console.error('Email provider returned a non-JSON error response.');
+    }
+    const message = typeof providerError.message === 'string'
+      ? providerError.message
+        .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[email]')
+        .slice(0, 300)
+      : '';
+    console.error('Email provider rejected request:', {
+      status: response.status,
+      code: typeof providerError.name === 'string' ? providerError.name : 'unknown',
+      message: message
+    });
     throw new Error('Email delivery failed.');
   }
 }
