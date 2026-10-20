@@ -8,38 +8,45 @@
   <script>document.documentElement.classList.add('js')</script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600;6..72,700&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600;6..72,700&family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
   <script src="script.js" defer></script>
 </head>
 <body>
-  <a class="skip" href="#main">Skip to content</a>
+  <a class="skip" href="#main" data-i18n="skip">Skip to content</a>
   <header class="top" id="top">
     <a class="brand" href="#home">Bishal Bikram Paudel</a>
-    <nav aria-label="Main navigation">
-      <a href="#about">About</a>
-      <a href="#experience">Experience</a>
-      <a href="#projects">Projects</a>
-      <a href="#leadership">Leadership</a>
-      <a href="#faq">General Queries</a>
-      <a href="#contact">Contact</a>
+    <nav aria-label="Main navigation" data-i18n-aria-label="navigation.label">
+      <a href="#about" data-i18n="navigation.about">About</a>
+      <a href="#experience" data-i18n="navigation.experience">Experience</a>
+      <a href="#projects" data-i18n="navigation.projects">Projects</a>
+      <a href="#leadership" data-i18n="navigation.leadership">Leadership</a>
+      <a href="#faq" data-i18n="navigation.queries">General Queries</a>
+      <a href="#contact" data-i18n="navigation.contact">Contact</a>
     </nav>
+    <div class="site-controls" aria-label="Display preferences" data-i18n-aria-label="preferences.label">
+      <button class="preference-toggle" type="button" id="language-toggle" aria-label="नेपालीमा देखाउनुहोस्">नेपाली</button>
+      <button class="preference-toggle" type="button" id="theme-toggle" aria-label="Enable dark mode" aria-pressed="false">
+        <svg class="theme-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M20.5 15.5A8.5 8.5 0 0 1 8.5 3.5 8.5 8.5 0 1 0 20.5 15.5Z"/></svg>
+        <span id="theme-label">Dark</span>
+      </button>
+    </div>
   </header>
 
   <main id="main">
     <section class="hero" id="home" aria-labelledby="hero-title">
       <div class="hero-layout">
         <div class="hero-copy">
-          <p class="kicker rise" style="--d:.1s">Computer Engineer • AI/ML Enthusiast • Student Leader</p>
+          <p class="kicker rise" style="--d:.1s" data-i18n="hero.kicker">Computer Engineer • AI/ML Enthusiast • Student Leader</p>
           <h1 id="hero-title" class="rise" style="--d:.25s">Bishal Bikram Paudel</h1>
-          <p class="lead rise" style="--d:.45s">I build practical software and AI/ML solutions, and bring people together through student leadership and community programs.</p>
+          <p class="lead rise" style="--d:.45s" data-i18n="hero.lead">I build practical software and AI/ML solutions, and bring people together through student leadership and community programs.</p>
           <div class="actions rise" style="--d:.65s">
-            <a class="btn primary" href="#contact">Get in touch</a>
-            <a class="btn ghost" href="#projects">View projects</a>
+            <a class="btn primary" href="#contact" data-i18n="hero.contact">Get in touch</a>
+            <a class="btn ghost" href="#projects" data-i18n="hero.projects">View projects</a>
           </div>
         </div>
         <figure class="hero-portrait rise" style="--d:.35s">
-          <img src="myphoto.jpg" alt="Bishal Bikram Paudel wearing a suit" fetchpriority="high">
+          <img src="myphoto.jpg" alt="Bishal Bikram Paudel wearing a suit" data-i18n-alt="hero.photoAlt" fetchpriority="high">
         </figure>
       </div>
       <svg width="0" height="0" aria-hidden="true" focusable="false"><symbol id="ridge" viewBox="0 0 2400 220"><path d="M0 160 L150 90 L260 140 L420 50 L560 130 L700 80 L860 150 L1000 70 L1120 120 L1200 160 L1350 90 L1460 140 L1620 50 L1760 130 L1900 80 L2060 150 L2200 70 L2320 120 L2400 160 V220 H0Z"/></symbol></svg>
@@ -53,32 +60,32 @@
     <section class="about" id="about" aria-labelledby="about-title">
       <div class="split">
         <div class="reveal">
-          <h2 id="about-title">Engineer by Learning, leader by Experience.</h2>
-          <p>I am a Computer Engineer from Kantipur Engineering College focused on AI/ML, software development, and applied problem-solving. My experience includes serving as an elected Student Council member, founding CodeCampNepal, and organizing campus programs and community workshops.</p>
-          <p>I enjoy work that brings technical depth and human connection together: building solutions, supporting teams, and contributing to the communities around me.</p>
+          <h2 id="about-title" data-i18n="about.title">Engineer by Learning, leader by Experience.</h2>
+          <p data-i18n="about.intro">I am a Computer Engineer from Kantipur Engineering College focused on AI/ML, software development, and applied problem-solving. My experience includes serving as an elected Student Council member, founding CodeCampNepal, and organizing campus programs and community workshops.</p>
+          <p data-i18n="about.values">I enjoy work that brings technical depth and human connection together: building solutions, supporting teams, and contributing to the communities around me.</p>
         </div>
         <div class="reveal profile-panel" style="--d:.12s">
           <div class="profile-card">
-            <p class="profile-label">Profile</p>
+            <p class="profile-label" data-i18n="about.profile">Profile</p>
             <div class="metric-grid">
               <div>
                 <strong>AI/ML</strong>
-                <span>Model building and Computer Vision</span>
+                <span data-i18n="about.metricAi">Model building and Computer Vision</span>
               </div>
               <div>
                 <strong>Systems</strong>
-                <span>Problem Solving and Operational Thinking</span>
+                <span data-i18n="about.metricSystems">Problem Solving and Operational Thinking</span>
               </div>
               <div>
                 <strong>Leadership</strong>
-                <span>Execution and Stakeholder Coordination</span>
+                <span data-i18n="about.metricLeadership">Execution and Stakeholder Coordination</span>
               </div>
             </div>
           </div>
           <dl class="facts">
-            <div><dt>Degree</dt><dd>B.E. Computer Engineering, Institute of Engineering</dd></div>
-            <div><dt>College</dt><dd>Kantipur Engineering College</dd></div>
-            <div><dt>Focus</dt><dd>AI/ML, Software Development, and Real-World Impact</dd></div>
+            <div><dt data-i18n="about.degree">Degree</dt><dd data-i18n="about.degreeValue">B.E. Computer Engineering, Institute of Engineering</dd></div>
+            <div><dt data-i18n="about.college">College</dt><dd>Kantipur Engineering College</dd></div>
+            <div><dt data-i18n="about.focus">Focus</dt><dd data-i18n="about.focusValue">AI/ML, Software Development, and Real-World Impact</dd></div>
           </dl>
           <ul class="chips" data-stagger aria-label="Skills">
             <li class="reveal">Python</li><li class="reveal">C</li><li class="reveal">C++</li><li class="reveal">PyTorch</li><li class="reveal">TensorFlow</li><li class="reveal">MySQL</li><li class="reveal">Arduino</li>
@@ -88,67 +95,67 @@
     </section>
 
     <section class="alt" id="experience" aria-labelledby="exp-title">
-      <h2 id="exp-title" class="reveal">Experience</h2>
+      <h2 id="exp-title" class="reveal" data-i18n="experience.title">Experience</h2>
       <div class="timeline" data-stagger>
         <article class="item reveal">
           <p class="when">Oct 2026 &ndash; Present</p>
-          <h3>Digital Marketing Staff, Tachyonwave</h3>
-          <p>Just started, learning and contributing to digital marketing work at a growing company.</p>
+          <h3 data-i18n="experience.role1">Digital Marketing Staff, Tachyonwave</h3>
+          <p data-i18n="experience.description1">Just started, learning and contributing to digital marketing work at a growing company.</p>
         </article>
         <article class="item reveal">
           <p class="when">Apr 2026 &ndash; Oct 2026</p>
-          <h3>Supervisor, Paaila Institute and Consultancy</h3>
-          <p>Managing staff and day-to-day operations, running marketing, and building partnerships with schools.</p>
+          <h3 data-i18n="experience.role2">Supervisor, Paaila Institute and Consultancy</h3>
+          <p data-i18n="experience.description2">Managing staff and day-to-day operations, running marketing, and building partnerships with schools.</p>
         </article>
       </div>
     </section>
 
     <section id="projects" aria-labelledby="proj-title">
-      <h2 id="proj-title" class="reveal">Projects</h2>
+      <h2 id="proj-title" class="reveal" data-i18n="projects.title">Projects</h2>
       <div class="rows" data-stagger>
         <article class="row reveal">
-          <div><h3>Tomato Disease Detection</h3><p class="meta">Major Project</p></div>
-          <div><p>Compares a Vision Transformer against a CNN for detecting Tomato disease.</p>
-          <ul class="tags"><li>Vision Transformer</li><li>CNN</li><li>Computer vision</li></ul></div>
+          <div><h3>Tomato Disease Detection</h3><p class="meta" data-i18n="projects.major">Major Project</p></div>
+          <div><p data-i18n="projects.tomato">Compares a Vision Transformer against a CNN for detecting Tomato disease.</p>
+          <ul class="tags"><li>Vision Transformer</li><li>CNN</li><li data-i18n="projects.computerVision">Computer vision</li></ul></div>
         </article>
         <article class="row reveal">
-          <div><h3>Sambandha</h3><p class="meta">Web Platform</p></div>
-          <div><p>Connects local Businesses with freelance experts so each side can find the right match.</p>
-          <ul class="tags"><li>Web Development</li><li>Marketplace</li></ul></div>
+          <div><h3>Sambandha</h3><p class="meta" data-i18n="projects.webPlatform">Web Platform</p></div>
+          <div><p data-i18n="projects.sambandha">Connects local Businesses with freelance experts so each side can find the right match.</p>
+          <ul class="tags"><li data-i18n="projects.webDevelopment">Web Development</li><li data-i18n="projects.marketplace">Marketplace</li></ul></div>
         </article>
         <article class="row reveal">
           <div><h3>Bike Resale Price Prediction</h3><p class="meta">Machine Learning</p></div>
-          <div><p>Predicts the resale price of used bikes using multiple linear regression.</p>
-          <ul class="tags"><li>Regression</li><li>Python</li></ul></div>
+          <div><p data-i18n="projects.bike">Predicts the resale price of used bikes using multiple linear regression.</p>
+          <ul class="tags"><li data-i18n="projects.regression">Regression</li><li>Python</li></ul></div>
         </article>
       </div>
     </section>
 
     <section class="alt" id="leadership" aria-labelledby="lead-title">
-      <h2 id="lead-title" class="reveal">Leadership</h2>
+      <h2 id="lead-title" class="reveal" data-i18n="leadership.title">Leadership</h2>
       <div class="leadership-grid" data-stagger>
         <article class="leadership-entry reveal">
           <span class="leadership-number" aria-hidden="true">01</span>
           <div class="leadership-copy">
             <p class="meta">Kantipur Engineering College · 2022&ndash;2024</p>
-            <h3>Free Student Council Member</h3>
-            <p>Elected by students to represent their interests and help move proposals from discussion to action.</p>
+            <h3 data-i18n="leadership.studentRole">Free Student Council Member</h3>
+            <p data-i18n="leadership.studentDescription">Elected by students to represent their interests and help move proposals from discussion to action.</p>
           </div>
         </article>
         <article class="leadership-entry reveal">
           <span class="leadership-number" aria-hidden="true">02</span>
           <div class="leadership-copy">
-            <p class="meta">Community · Nepal</p>
-            <h3>Founding Member</h3>
-            <p>Started CodeCampNepal to make it easier for people to learn and share code.</p>
+            <p class="meta" data-i18n="leadership.community">Community · Nepal</p>
+            <h3 data-i18n="leadership.founder">Founding Member</h3>
+            <p data-i18n="leadership.founderDescription">Started CodeCampNepal to make it easier for people to learn and share code.</p>
             <ul class="leadership-highlights">
-              <li>App development training and mentorship at Kantipur Engineering College</li>
-              <li>Three-day Python workshop at Padma Kanya Campus, Bagbazar</li>
-              <li>Three-day programming bootcamp at C.C.R.C. College, Kathmandu</li>
+              <li data-i18n="leadership.highlight1">App development training and mentorship at Kantipur Engineering College</li>
+              <li data-i18n="leadership.highlight2">Three-day Python workshop at Padma Kanya Campus, Bagbazar</li>
+              <li data-i18n="leadership.highlight3">Three-day programming bootcamp at C.C.R.C. College, Kathmandu</li>
               <li class="leadership-social">
                 <a class="social-link instagram" href="https://www.instagram.com/nepalcodecamp/" target="_blank" rel="noopener noreferrer" aria-label="Visit CodeCampNepal on Instagram">
                   <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M7.5 2h9A5.5 5.5 0 0 1 22 7.5v9a5.5 5.5 0 0 1-5.5 5.5h-9A5.5 5.5 0 0 1 2 16.5v-9A5.5 5.5 0 0 1 7.5 2Zm0 2A3.5 3.5 0 0 0 4 7.5v9A3.5 3.5 0 0 0 7.5 20h9a3.5 3.5 0 0 0 3.5-3.5v-9A3.5 3.5 0 0 0 16.5 4h-9ZM12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10Zm0 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6Zm5.25-3.5a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5Z"/></svg>
-                  <span>Follow CodeCampNepal on Instagram</span>
+                  <span data-i18n="leadership.instagram">Follow CodeCampNepal on Instagram</span>
                 </a>
               </li>
             </ul>
@@ -158,81 +165,81 @@
           <span class="leadership-number" aria-hidden="true">03</span>
           <div class="leadership-copy">
             <p class="meta">Events · Kantipur Engineering College</p>
-            <h3>Event Organizer</h3>
-            <p>Organized the college's welcome and farewell programs at Nepal Pragya Pratisthan, Kamaladi, Kathmandu. Also coordinated blood donation programs with Red Cross Dhapakhel, Lalitpur.</p>
+            <h3 data-i18n="leadership.eventOrganizer">Event Organizer</h3>
+            <p data-i18n="leadership.eventDescription">Organized the college's welcome and farewell programs at Nepal Pragya Pratisthan, Kamaladi, Kathmandu. Also coordinated blood donation programs with Red Cross Dhapakhel, Lalitpur.</p>
           </div>
         </article>
         <article class="leadership-entry reveal">
           <span class="leadership-number" aria-hidden="true">04</span>
           <div class="leadership-copy">
             <p class="meta">Kantipur Engineering College Music Fest</p>
-            <h3>Fest Organizer</h3>
-            <p>Planned and Organized the college music festival featuring Rockheads , Rachana Dahal, The Treble Trouble and other local bands and artists.</p>
+            <h3 data-i18n="leadership.festivalOrganizer">Fest Organizer</h3>
+            <p data-i18n="leadership.festivalDescription">Planned and Organized the college music festival featuring Rockheads , Rachana Dahal, The Treble Trouble and other local bands and artists.</p>
           </div>
         </article>
       </div>
     </section>
 
     <section class="faq alt" id="faq" aria-labelledby="faq-title">
-      <h2 id="faq-title" class="reveal">General Queries</h2>
-      <p class="faq-intro reveal">Browse the answers below, or send me a private question using the form.</p>
+      <h2 id="faq-title" class="reveal" data-i18n="faq.title">General Queries</h2>
+      <p class="faq-intro reveal" data-i18n="faq.intro">Browse the answers below, or send me a private question using the form.</p>
       <div class="faq-list reveal">
         <details>
-          <summary>What do you study, and what are your areas of focus?</summary>
-          <p>I studied Computer Engineering from Kantipur Engineering College. I focus on AI/ML, software development, computer vision, and practical problem-solving.</p>
+          <summary data-i18n="faq.q1">What do you study, and what are your areas of focus?</summary>
+          <p data-i18n="faq.a1">I studied Computer Engineering from Kantipur Engineering College. I focus on AI/ML, software development, computer vision, and practical problem-solving.</p>
         </details>
         <details>
-          <summary>What projects have you worked on?</summary>
-          <p>My projects include Tomato Disease Detection comparing a Vision Transformer with a CNN, Sambandha (a platform connecting local businesses with freelance experts), and Used-Bike Resale Price Prediction with linear regression.</p>
+          <summary data-i18n="faq.q2">What projects have you worked on?</summary>
+          <p data-i18n="faq.a2">My projects include Tomato Disease Detection comparing a Vision Transformer with a CNN, Sambandha (a platform connecting local businesses with freelance experts), and Used-Bike Resale Price Prediction with linear regression.</p>
         </details>
         <details>
-          <summary>What is CodeCampNepal?</summary>
-          <p>CodeCampNepal is a community I founded to make it easier for people to learn and share code. Its activities have included app development training, Python and programming workshops, and mentorship.</p>
+          <summary data-i18n="faq.q3">What is CodeCampNepal?</summary>
+          <p data-i18n="faq.a3">CodeCampNepal is a community I founded to make it easier for people to learn and share code. Its activities have included app development training, Python and programming workshops, and mentorship.</p>
         </details>
         <details>
-          <summary>What technical skills do you use?</summary>
-          <p>I work with Python, C, C++, PyTorch, TensorFlow, MySQL, and Arduino.</p>
+          <summary data-i18n="faq.q4">What technical skills do you use?</summary>
+          <p data-i18n="faq.a4">I work with Python, C, C++, PyTorch, TensorFlow, MySQL, and Arduino.</p>
         </details>
         <details>
-          <summary>How can we discuss a project or collaboration?</summary>
-          <p>Email me at <a href="mailto:bishalbikrampaudel@gmail.com">bishalbikrampaudel@gmail.com</a> or call <a href="tel:+9779714366342">+977 9714366342</a>.</p>
+          <summary data-i18n="faq.q5">How can we discuss a project or collaboration?</summary>
+          <p><span data-i18n="faq.a5Prefix">For a project or collaboration, email me at</span> <a href="mailto:bishalbikrampaudel@gmail.com">bishalbikrampaudel@gmail.com</a> <span data-i18n="faq.a5Join">or call</span> <a href="tel:+9779714366342">+977 9714366342</a>.</p>
         </details>
       </div>
       <div class="query-form-wrap reveal">
-        <h3>Have a personal question?</h3>
-        <p class="faq-intro">Send a private message directly to me. Your message and email address are only visible in my inbox, and I can reply to you by email.</p>
+        <h3 data-i18n="query.title">Have a personal question?</h3>
+        <p class="faq-intro" data-i18n="query.intro">Send a private message directly to me. Your message and email address are only visible in my inbox, and I can reply to you by email.</p>
         <form class="query-form" id="query-form">
           <div class="query-fields">
             <div>
-              <label for="query-name">Your name</label>
+              <label for="query-name" data-i18n="query.name">Your name</label>
               <input id="query-name" name="name" autocomplete="name" maxlength="100" required>
             </div>
             <div>
-              <label for="query-email">Email address</label>
+              <label for="query-email" data-i18n="query.email">Email address</label>
               <input id="query-email" name="email" type="email" autocomplete="email" maxlength="254" required>
             </div>
           </div>
           <div>
-            <label for="query-subject">Subject</label>
+            <label for="query-subject" data-i18n="query.subject">Subject</label>
             <input id="query-subject" name="subject" maxlength="160" required>
           </div>
           <div>
-            <label for="query-message">Your message</label>
+            <label for="query-message" data-i18n="query.message">Your message</label>
             <textarea id="query-message" name="message" rows="5" maxlength="3000" required></textarea>
           </div>
           <div class="query-trap" aria-hidden="true">
-            <label for="query-website">Leave this field empty</label>
+            <label for="query-website" data-i18n="query.honeypot">Leave this field empty</label>
             <input id="query-website" name="website" tabindex="-1" autocomplete="off">
           </div>
-          <button class="btn primary query-submit" type="submit">Send private query</button>
+          <button class="btn primary query-submit" type="submit" data-i18n="query.submit">Send private query</button>
           <p class="query-status" id="query-status" role="status" aria-live="polite"></p>
         </form>
       </div>
     </section>
 
     <section class="contact" id="contact" aria-labelledby="contact-title">
-      <h2 id="contact-title" class="reveal">Let's Collaborate Together.</h2>
-      <p class="intro reveal" style="--d:.1s">For projects, Collaborations or Conversations about Student Leadership, reach me here.</p>
+      <h2 id="contact-title" class="reveal" data-i18n="contact.title">Let's Collaborate Together.</h2>
+      <p class="intro reveal" style="--d:.1s" data-i18n="contact.intro">For projects, Collaborations or Conversations about Student Leadership, reach me here.</p>
       <div class="links reveal" style="--d:.2s">
         <div class="contact-links" aria-label="Contact methods">
           <a class="social-link gmail" href="mailto:bishalbikrampaudel@gmail.com">
@@ -267,8 +274,9 @@
   </main>
   <footer>
     <p>&copy; 2026 Bishal Bikram Paudel</p>
-    <a href="inbox.html">Owner inbox</a>
+    <a href="inbox.html" data-i18n="footer.ownerInbox">Owner inbox</a>
   </footer>
   <script src="queries.js" defer></script>
+  <script src="preferences.js" defer></script>
 </body>
 </html>

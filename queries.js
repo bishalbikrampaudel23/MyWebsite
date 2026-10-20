@@ -6,6 +6,26 @@
 
   var status = document.getElementById('query-status');
   var submitButton = form.querySelector('button[type="submit"]');
+  var statusKey = '';
+
+  function setStatus(key, english) {
+    statusKey = key;
+    status.textContent = window.portfolioTranslate
+      ? window.portfolioTranslate(key, english)
+      : english;
+  }
+
+  window.addEventListener('portfolio:language-change', function () {
+    if (statusKey) {
+      var messages = {
+        'query.sending': 'Sending your private query…',
+        'query.saved': 'Your query has been sent privately. Thank you — I’ll reply to your email.',
+        'query.savedNoAlert': 'Your query was saved, but the inbox email alert could not be sent. Please use the contact details below if your message is urgent.',
+        'query.failed': 'Your query could not be sent. Please try again.'
+      };
+      setStatus(statusKey, messages[statusKey]);
+    }
+  });
 
   form.addEventListener('submit', async function (event) {
     event.preventDefault();
@@ -15,7 +35,7 @@
 
     var values = new FormData(form);
     submitButton.disabled = true;
-    status.textContent = 'Sending your private query…';
+    setStatus('query.sending', 'Sending your private query…');
 
     try {
       var response = await fetch('/api/queries', {
@@ -35,11 +55,15 @@
       }
 
       form.reset();
-      status.textContent = result.notificationSent === false
-        ? 'Your query was saved, but the inbox email alert could not be sent. Please use the contact details below if your message is urgent.'
-        : 'Your query has been sent privately. Thank you — I’ll reply to your email.';
+      setStatus(
+        result.notificationSent === false ? 'query.savedNoAlert' : 'query.saved',
+        result.notificationSent === false
+          ? 'Your query was saved, but the inbox email alert could not be sent. Please use the contact details below if your message is urgent.'
+          : 'Your query has been sent privately. Thank you — I’ll reply to your email.'
+      );
     } catch (error) {
-      status.textContent = error.message || 'Your query could not be sent. Please try again.';
+      statusKey = 'query.failed';
+      status.textContent = error.message || window.portfolioTranslate('query.failed', 'Your query could not be sent. Please try again.');
     } finally {
       submitButton.disabled = false;
     }
