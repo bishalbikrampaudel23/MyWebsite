@@ -13,9 +13,24 @@
   function api(path, options) {
     return fetch('/api' + path, Object.assign({
       credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json' }
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      }
     }, options)).then(async function (response) {
-      var result = await response.json();
+      var responseText = await response.text();
+      var result;
+      try {
+        result = JSON.parse(responseText);
+      } catch (error) {
+        if (response.headers.get('Cf-Mitigated') === 'challenge') {
+          throw new Error('Cloudflare is blocking the inbox API with a security challenge. Allow /api/* requests to reach the inbox Worker without a browser challenge.');
+        }
+        if (!response.ok) {
+          throw new Error('The inbox API returned HTTP ' + response.status + ' instead of JSON.');
+        }
+        throw new Error('The inbox API returned an unexpected non-JSON response.');
+      }
       if (!response.ok) {
         throw new Error(result.error || 'The request could not be completed.');
       }

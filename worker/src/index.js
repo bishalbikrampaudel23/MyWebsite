@@ -2,6 +2,8 @@ const MAX_BODY_LENGTH = 20000;
 const SESSION_SECONDS = 8 * 60 * 60;
 const LOGIN_WINDOW_SECONDS = 15 * 60;
 const MAX_LOGIN_ATTEMPTS = 5;
+const QUERY_WINDOW_SECONDS = 60 * 60;
+const MAX_QUERY_SUBMISSIONS = 5;
 
 function jsonResponse(data, status, origin, allowedOrigins) {
   const headers = {
@@ -144,12 +146,18 @@ async function sendEmail(env, email) {
         .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[email]')
         .slice(0, 300)
       : '';
+    const code = typeof providerError.name === 'string'
+      ? providerError.name.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 80)
+      : '';
     console.error('Email provider rejected request:', {
       status: response.status,
-      code: typeof providerError.name === 'string' ? providerError.name : 'unknown',
+      code: code || 'unknown',
       message: message
     });
-    throw new Error('Email delivery failed.');
+    throw new Error(
+      'Resend rejected the email (HTTP ' + response.status + ', ' +
+      (code || 'unknown error') + '). Check the Worker logs for the sanitized provider reason.'
+    );
   }
 }
 
@@ -202,6 +210,28 @@ async function handleVisitorQuery(request, env, origin, allowedOrigins) {
   const validated = validQuery(body.value);
   if (validated.error) {
     return jsonResponse({ error: validated.error }, 400, origin, allowedOrigins);
+  }
+  if (!env.ADMIN_PASSWORD) {
+    return jsonResponse({ error: 'Visitor query rate limiting is not configured.' }, 503, origin, allowedOrigins);
+  }
+  const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
+  const ipHash = await sha256(clientIp + ':' + env.ADMIN_PASSWORD);
+  const now = Math.floor(Date.now() / 1000);
+  await env.DB.prepare(
+    'DELETE FROM query_submission_limits WHERE window_started <= ?'
+  ).bind(now - QUERY_WINDOW_SECONDS).run();
+  const submissionLimit = await env.DB.prepare(
+    'INSERT INTO query_submission_limits (ip_hash, window_started, attempts) VALUES (?, ?, 1) ' +
+    'ON CONFLICT(ip_hash) DO UPDATE SET ' +
+    'attempts = CASE WHEN window_started <= ? THEN 1 ELSE attempts + 1 END, ' +
+    'window_started = CASE WHEN window_started <= ? THEN excluded.window_started ELSE window_started END ' +
+    'RETURNING attempts'
+  ).bind(ipHash, now, now - QUERY_WINDOW_SECONDS, now - QUERY_WINDOW_SECONDS).first();
+  if (!submissionLimit || !Number.isInteger(submissionLimit.attempts)) {
+    throw new Error('Visitor query rate limit could not be enforced.');
+  }
+  if (submissionLimit.attempts > MAX_QUERY_SUBMISSIONS) {
+    return jsonResponse({ error: 'Too many messages. Please try again later.' }, 429, origin, allowedOrigins);
   }
   const query = validated.query;
   const createdAt = new Date().toISOString();
@@ -358,7 +388,11 @@ async function sendReply(request, env, queryId, origin, allowedOrigins) {
     });
   } catch (error) {
     console.error('Reply email could not be sent:', error);
-    return jsonResponse({ error: 'The reply email could not be sent. Check the email configuration and try again.' }, 502, origin, allowedOrigins);
+    return jsonResponse({
+      error: error instanceof Error
+        ? error.message
+        : 'The reply email could not be sent. Check the Worker logs and email configuration.'
+    }, 502, origin, allowedOrigins);
   }
 
   const createdAt = new Date().toISOString();
@@ -400,6 +434,12 @@ export default {
 
     try {
       if (path === '/api/queries' && request.method === 'POST') {
+        const rateLimit = await env.QUERY_RATE_LIMITER.limit({
+          key: request.headers.get('CF-Connecting-IP') || 'unknown'
+        });
+        if (!rateLimit.success) {
+          return jsonResponse({ error: 'Too many messages. Please wait a minute before trying again.' }, 429, origin, allowedOrigins);
+        }
         return await handleVisitorQuery(request, env, origin, allowedOrigins);
       }
       if (path === '/api/admin/login' && request.method === 'POST') {

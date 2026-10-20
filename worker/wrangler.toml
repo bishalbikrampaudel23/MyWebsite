@@ -12,6 +12,11 @@ binding = "DB"
 database_name = "portfolio-queries"
 database_id = "137c7691-a116-4b09-af43-f0be78cfa1ed"
 
+[[ratelimits]]
+name = "QUERY_RATE_LIMITER"
+namespace_id = "2026102015"
+simple = { limit = 10, period = 60 }
+
 [vars]
 ALLOWED_ORIGINS = "https://www.bishalpaudel23.com.np,https://bishalpaudel23.com.np"
 ADMIN_EMAIL = "bishalbikrampaudel@gmail.com"

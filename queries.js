@@ -21,6 +21,7 @@
         'query.sending': 'Sending your private query…',
         'query.saved': 'Your query has been sent privately. Thank you — I’ll reply to your email.',
         'query.savedNoAlert': 'Your query was saved, but the inbox email alert could not be sent. Please use the contact details below if your message is urgent.',
+        'query.rateLimited': 'Too many messages. Please try again later.',
         'query.failed': 'Your query could not be sent. Please try again.'
       };
       setStatus(statusKey, messages[statusKey]);
@@ -50,6 +51,13 @@
         })
       });
       var result = await response.json();
+      if (response.status === 429) {
+        setStatus(
+          'query.rateLimited',
+          result.error || 'Too many messages. Please try again later.'
+        );
+        return;
+      }
       if (!response.ok) {
         throw new Error(result.error || 'Your query could not be sent. Please try again.');
       }
