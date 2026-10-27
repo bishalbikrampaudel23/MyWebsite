@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /inbox.html
+Disallow: /api/
+
+Sitemap: https://www.bishalpaudel23.com.np/sitemap.xml

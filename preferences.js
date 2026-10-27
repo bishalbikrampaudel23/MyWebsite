@@ -91,6 +91,10 @@
     'query.savedNoAlert': 'तपाईंको message save भयो, तर inbox मा email notification पठाउन सकिएन। जरुरी भए तलका contact details प्रयोग गर्नुहोस्।',
     'query.rateLimited': 'धेरै message पठाइयो। केही समयपछि फेरि try गर्नुहोस्।',
     'query.failed': 'तपाईंको message पठाउन सकिएन। फेरि try गर्नुहोस्।',
+    'query.turnstileLoading': 'Spam जाँच लोड हुँदैछ…',
+    'query.turnstileComplete': 'Spam जाँच पूरा भयो।',
+    'query.turnstileExpired': 'Spam जाँचको समय सकियो। कृपया फेरि पूरा गर्नुहोस्।',
+    'query.turnstileError': 'Spam जाँच उपलब्ध छैन। केही समयपछि फेरि प्रयास गर्नुहोस्।',
     'theme.dark': 'Dark',
     'theme.light': 'Light',
     'theme.enableLight': 'Light mode खोल्नुहोस्',
@@ -189,7 +193,7 @@
     element.dataset.originalText = element.textContent;
   });
 
-  language = readPreference('portfolio-language') === 'ne' ? 'ne' : 'en';
+  language = document.documentElement.lang === 'ne' ? 'ne' : 'en';
   var savedTheme = readPreference('portfolio-theme');
   theme = savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)
     ? 'dark'
@@ -202,13 +206,7 @@
   };
 
   languageToggle.addEventListener('click', function () {
-    language = language === 'en' ? 'ne' : 'en';
-    savePreference('portfolio-language', language);
-    updateLanguageControl();
-    updateThemeControl();
-    window.dispatchEvent(new CustomEvent('portfolio:language-change', {
-      detail: { language: language }
-    }));
+    window.location.assign(language === 'en' ? '/ne/' : '/');
   });
 
   themeToggle.addEventListener('click', function () {

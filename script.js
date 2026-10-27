@@ -1,4 +1,5 @@
 (function () {
+  document.documentElement.classList.add('js');
   var header = document.getElementById('top');
   function onScroll() {
     header.classList.toggle('scrolled', window.scrollY > 40);

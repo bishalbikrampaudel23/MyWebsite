@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && node scripts/generate-nepali-page.js",
+    "test": "npm run build && node --test worker/test/auth.test.js",
     "preview": "vite preview"
   },
   "dependencies": {

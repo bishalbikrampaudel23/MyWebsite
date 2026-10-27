@@ -4,11 +4,21 @@ const LOGIN_WINDOW_SECONDS = 15 * 60;
 const MAX_LOGIN_ATTEMPTS = 5;
 const QUERY_WINDOW_SECONDS = 60 * 60;
 const MAX_QUERY_SUBMISSIONS = 5;
+const TOTP_STEP_SECONDS = 30;
+const TOTP_WINDOW_STEPS = 1;
+const TURNSTILE_ACTION = 'visitor_query';
+const AUDIT_RETENTION_DAYS = 180;
 
 function jsonResponse(data, status, origin, allowedOrigins) {
   const headers = {
     'Content-Type': 'application/json; charset=utf-8',
     'Cache-Control': 'no-store',
+    'Content-Security-Policy': "default-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+    'Permissions-Policy': 'camera=(), geolocation=(), microphone=()',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'Strict-Transport-Security': 'max-age=31536000',
     'Vary': 'Origin'
   };
   if (origin && allowedOrigins.includes(origin)) {
@@ -41,6 +51,59 @@ function bytesToHex(bytes) {
 async function sha256(value) {
   const bytes = new TextEncoder().encode(value);
   return bytesToHex(await crypto.subtle.digest('SHA-256', bytes));
+}
+
+function decodeBase32(value) {
+  const normalized = value.toUpperCase().replace(/=+$/, '');
+  if (!/^[A-Z2-7]+$/.test(normalized)) {
+    throw new Error('ADMIN_TOTP_SECRET must be a Base32 value.');
+  }
+  let bits = '';
+  for (const character of normalized) {
+    bits += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'.indexOf(character).toString(2).padStart(5, '0');
+  }
+  const bytes = [];
+  for (let offset = 0; offset + 8 <= bits.length; offset += 8) {
+    bytes.push(parseInt(bits.slice(offset, offset + 8), 2));
+  }
+  if (bytes.length < 20) {
+    throw new Error('ADMIN_TOTP_SECRET must decode to at least 20 bytes.');
+  }
+  return new Uint8Array(bytes);
+}
+
+async function totpCode(secret, counter) {
+  const key = await crypto.subtle.importKey(
+    'raw',
+    decodeBase32(secret),
+    { name: 'HMAC', hash: 'SHA-1' },
+    false,
+    ['sign']
+  );
+  const message = new ArrayBuffer(8);
+  new DataView(message).setBigUint64(0, BigInt(counter));
+  const digest = new Uint8Array(await crypto.subtle.sign('HMAC', key, message));
+  const offset = digest[digest.length - 1] & 0x0f;
+  const binary =
+    ((digest[offset] & 0x7f) << 24) |
+    ((digest[offset + 1] & 0xff) << 16) |
+    ((digest[offset + 2] & 0xff) << 8) |
+    (digest[offset + 3] & 0xff);
+  return String(binary % 1000000).padStart(6, '0');
+}
+
+async function matchingTotpCounter(secret, code, now = Date.now()) {
+  if (!/^\d{6}$/.test(code)) {
+    return null;
+  }
+  const currentCounter = Math.floor(now / 1000 / TOTP_STEP_SECONDS);
+  for (let offset = -TOTP_WINDOW_STEPS; offset <= TOTP_WINDOW_STEPS; offset += 1) {
+    const counter = currentCounter + offset;
+    if (counter >= 0 && constantTimeEqual(await totpCode(secret, counter), code)) {
+      return counter;
+    }
+  }
+  return null;
 }
 
 function constantTimeEqual(left, right) {
@@ -79,6 +142,51 @@ async function readJson(request) {
   } catch {
     return { error: 'Request body must be valid JSON.' };
   }
+}
+
+async function verifyTurnstile(env, token, expectedHostname) {
+  if (!env.TURNSTILE_SECRET_KEY || !env.TURNSTILE_SITE_KEY) {
+    throw new Error('Turnstile is not configured.');
+  }
+  if (!token || token.length > 2048) {
+    return false;
+  }
+  const body = new URLSearchParams({
+    secret: env.TURNSTILE_SECRET_KEY,
+    response: token,
+    idempotency_key: crypto.randomUUID()
+  });
+  const response = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body,
+    signal: AbortSignal.timeout(5000)
+  });
+  if (!response.ok) {
+    throw new Error('Turnstile Siteverify returned HTTP ' + response.status + '.');
+  }
+  const result = await response.json();
+  return result.success === true &&
+    result.hostname === expectedHostname &&
+    result.action === TURNSTILE_ACTION;
+}
+
+async function recordAuditEvent(env, eventType, resourceId = null) {
+  await env.DB.prepare(
+    'INSERT INTO security_audit_log (event_type, resource_id, created_at) VALUES (?, ?, ?)'
+  ).bind(eventType, resourceId, new Date().toISOString()).run();
+}
+
+async function verifyRequestOrigin(request, origin, allowedOrigins) {
+  if (!origin || !allowedOrigins.includes(origin)) {
+    return false;
+  }
+  const fetchSite = request.headers.get('Sec-Fetch-Site');
+  if (fetchSite && fetchSite !== 'same-origin') {
+    return false;
+  }
+  const contentType = request.headers.get('Content-Type') || '';
+  return /^application\/json(?:\s*;|$)/i.test(contentType);
 }
 
 function normalizeField(value) {
@@ -183,14 +291,15 @@ async function notifyOwner(env, query) {
 
 async function getSession(request, env) {
   const token = parseCookies(request)['__Secure-portfolio_session'];
-  if (!token) {
+  if (!token || !env.ADMIN_PASSWORD || !env.ADMIN_TOTP_SECRET) {
     return null;
   }
   const tokenHash = await sha256(token);
+  const authFingerprint = await sha256(env.ADMIN_PASSWORD + ':' + env.ADMIN_TOTP_SECRET);
   const now = new Date().toISOString();
   const session = await env.DB.prepare(
-    'SELECT token_hash FROM admin_sessions WHERE token_hash = ? AND expires_at > ?'
-  ).bind(tokenHash, now).first();
+    'SELECT token_hash FROM admin_sessions WHERE token_hash = ? AND expires_at > ? AND auth_fingerprint = ?'
+  ).bind(tokenHash, now, authFingerprint).first();
   return session ? tokenHash : null;
 }
 
@@ -206,6 +315,15 @@ async function handleVisitorQuery(request, env, origin, allowedOrigins) {
   }
   if (normalizeField(body.value.website)) {
     return jsonResponse({ saved: true, notificationSent: true }, 201, origin, allowedOrigins);
+  }
+  const expectedHostname = new URL(origin).hostname;
+  const turnstileValid = await verifyTurnstile(
+    env,
+    normalizeField(body.value.turnstileToken),
+    expectedHostname
+  );
+  if (!turnstileValid) {
+    return jsonResponse({ error: 'Please complete the anti-spam check and try again.' }, 400, origin, allowedOrigins);
   }
   const validated = validQuery(body.value);
   if (validated.error) {
@@ -235,10 +353,15 @@ async function handleVisitorQuery(request, env, origin, allowedOrigins) {
   }
   const query = validated.query;
   const createdAt = new Date().toISOString();
-  await env.DB.prepare(
-    'INSERT INTO visitor_queries (name, email, subject, message, status, created_at) ' +
-    "VALUES (?, ?, ?, ?, 'new', ?)"
-  ).bind(query.name, query.email, query.subject, query.message, createdAt).run();
+  await env.DB.batch([
+    env.DB.prepare(
+      'INSERT INTO visitor_queries (name, email, subject, message, status, created_at) ' +
+      "VALUES (?, ?, ?, ?, 'new', ?)"
+    ).bind(query.name, query.email, query.subject, query.message, createdAt),
+    env.DB.prepare(
+      'INSERT INTO security_audit_log (event_type, created_at) VALUES (?, ?)'
+    ).bind('query_submitted', createdAt)
+  ]);
 
   let notificationSent = true;
   try {
@@ -250,15 +373,31 @@ async function handleVisitorQuery(request, env, origin, allowedOrigins) {
   return jsonResponse({ saved: true, notificationSent }, 201, origin, allowedOrigins);
 }
 
+async function recordFailedLogin(env, ipHash, now) {
+  await env.DB.prepare(
+    'INSERT INTO login_attempts (ip_hash, window_started, attempts) VALUES (?, ?, 1) ' +
+    'ON CONFLICT(ip_hash) DO UPDATE SET ' +
+    'attempts = CASE WHEN window_started <= ? THEN 1 ELSE attempts + 1 END, ' +
+    'window_started = CASE WHEN window_started <= ? THEN excluded.window_started ELSE window_started END'
+  ).bind(ipHash, now, now - LOGIN_WINDOW_SECONDS, now - LOGIN_WINDOW_SECONDS).run();
+}
+
 async function handleLogin(request, env, origin, allowedOrigins) {
-  if (!env.ADMIN_PASSWORD) {
-    return jsonResponse({ error: 'Owner sign-in is not configured.' }, 503, origin, allowedOrigins);
+  if (!env.ADMIN_PASSWORD || !env.ADMIN_TOTP_SECRET) {
+    return jsonResponse({ error: 'Owner sign-in is not fully configured.' }, 503, origin, allowedOrigins);
+  }
+  try {
+    decodeBase32(env.ADMIN_TOTP_SECRET);
+  } catch (error) {
+    console.error('Owner sign-in MFA secret is invalid:', error);
+    return jsonResponse({ error: 'Owner sign-in is not fully configured.' }, 503, origin, allowedOrigins);
   }
   const body = await readJson(request);
   if (body.error) {
     return jsonResponse({ error: body.error }, 400, origin, allowedOrigins);
   }
   const password = normalizeField(body.value.password);
+  const otp = normalizeField(body.value.otp);
   const ipHash = await sha256(
     (request.headers.get('CF-Connecting-IP') || 'unknown') + ':' + env.ADMIN_PASSWORD
   );
@@ -277,24 +416,35 @@ async function handleLogin(request, env, origin, allowedOrigins) {
     return jsonResponse({ error: 'Too many sign-in attempts. Please wait 15 minutes and try again.' }, 429, origin, allowedOrigins);
   }
 
-  if (!constantTimeEqual(password, env.ADMIN_PASSWORD)) {
-    await env.DB.prepare(
-      'INSERT INTO login_attempts (ip_hash, window_started, attempts) VALUES (?, ?, 1) ' +
-      'ON CONFLICT(ip_hash) DO UPDATE SET ' +
-      'attempts = CASE WHEN window_started <= ? THEN 1 ELSE attempts + 1 END, ' +
-      'window_started = CASE WHEN window_started <= ? THEN excluded.window_started ELSE window_started END'
-    ).bind(ipHash, now, now - LOGIN_WINDOW_SECONDS, now - LOGIN_WINDOW_SECONDS).run();
+  const totpCounter = await matchingTotpCounter(env.ADMIN_TOTP_SECRET, otp);
+  if (!constantTimeEqual(password, env.ADMIN_PASSWORD) || totpCounter === null) {
+    await recordFailedLogin(env, ipHash, now);
+    await recordAuditEvent(env, 'login_failed');
     return jsonResponse({ error: 'Incorrect password.' }, 401, origin, allowedOrigins);
+  }
+
+  const acceptedCounter = await env.DB.prepare(
+    'UPDATE admin_totp_state SET last_counter = ? WHERE id = 1 AND last_counter < ? RETURNING last_counter'
+  ).bind(totpCounter, totpCounter).first();
+  if (!acceptedCounter) {
+    await recordFailedLogin(env, ipHash, now);
+    await recordAuditEvent(env, 'login_replay_rejected');
+    return jsonResponse({ error: 'That authenticator code has already been used. Wait for a new code and try again.' }, 401, origin, allowedOrigins);
   }
 
   await env.DB.prepare('DELETE FROM login_attempts WHERE ip_hash = ?').bind(ipHash).run();
   const token = createToken();
   const tokenHash = await sha256(token);
+  const authFingerprint = await sha256(env.ADMIN_PASSWORD + ':' + env.ADMIN_TOTP_SECRET);
   const expiresAt = new Date(Date.now() + SESSION_SECONDS * 1000).toISOString();
   await env.DB.prepare('DELETE FROM admin_sessions WHERE expires_at <= ?').bind(new Date().toISOString()).run();
   await env.DB.prepare(
-    'INSERT INTO admin_sessions (token_hash, expires_at) VALUES (?, ?)'
-  ).bind(tokenHash, expiresAt).run();
+    'DELETE FROM admin_sessions WHERE auth_fingerprint IS NULL OR auth_fingerprint != ?'
+  ).bind(authFingerprint).run();
+  await env.DB.prepare(
+    'INSERT INTO admin_sessions (token_hash, expires_at, auth_fingerprint) VALUES (?, ?, ?)'
+  ).bind(tokenHash, expiresAt, authFingerprint).run();
+  await recordAuditEvent(env, 'login_succeeded');
 
   const response = jsonResponse({ authenticated: true }, 200, origin, allowedOrigins);
   response.headers.append('Set-Cookie', sessionCookie(token, SESSION_SECONDS));
@@ -402,7 +552,10 @@ async function sendReply(request, env, queryId, origin, allowedOrigins) {
     ).bind(query.id, message, createdAt),
     env.DB.prepare(
       "UPDATE visitor_queries SET status = 'replied' WHERE id = ?"
-    ).bind(query.id)
+    ).bind(query.id),
+    env.DB.prepare(
+      'INSERT INTO security_audit_log (event_type, resource_id, created_at) VALUES (?, ?, ?)'
+    ).bind('query_replied', query.id, createdAt)
   ]);
   return jsonResponse({ sent: true }, 200, origin, allowedOrigins);
 }
@@ -426,6 +579,9 @@ export default {
     if (isWrite && !origin) {
       return jsonResponse({ error: 'A trusted website origin is required.' }, 403, null, allowedOrigins);
     }
+    if (isWrite && !await verifyRequestOrigin(request, origin, allowedOrigins)) {
+      return jsonResponse({ error: 'The request origin or content type is not allowed.' }, 403, origin, allowedOrigins);
+    }
     if (request.method === 'OPTIONS') {
       return origin
         ? jsonResponse({}, 204, origin, allowedOrigins)
@@ -433,7 +589,16 @@ export default {
     }
 
     try {
+      if (path === '/api/config' && request.method === 'GET') {
+        if (!env.TURNSTILE_SITE_KEY) {
+          return jsonResponse({ error: 'Anti-spam protection is not configured.' }, 503, origin, allowedOrigins);
+        }
+        return jsonResponse({ turnstileSiteKey: env.TURNSTILE_SITE_KEY }, 200, origin, allowedOrigins);
+      }
       if (path === '/api/queries' && request.method === 'POST') {
+        if (!env.TURNSTILE_SECRET_KEY || !env.TURNSTILE_SITE_KEY) {
+          return jsonResponse({ error: 'Anti-spam protection is not configured.' }, 503, origin, allowedOrigins);
+        }
         const rateLimit = await env.QUERY_RATE_LIMITER.limit({
           key: request.headers.get('CF-Connecting-IP') || 'unknown'
         });
@@ -455,6 +620,7 @@ export default {
         const session = await getSession(request, env);
         if (session) {
           await env.DB.prepare('DELETE FROM admin_sessions WHERE token_hash = ?').bind(session).run();
+          await recordAuditEvent(env, 'logout');
         }
         const response = jsonResponse({ authenticated: false }, 200, origin, allowedOrigins);
         response.headers.append('Set-Cookie', sessionCookie('', 0));
@@ -480,7 +646,11 @@ export default {
           return jsonResponse({ error: 'Please sign in to manage the inbox.' }, 401, origin, allowedOrigins);
         }
         if (adminQueryPath[2] === 'read') {
-          return await markRead(request, env, adminQueryPath[1], origin, allowedOrigins);
+          const response = await markRead(request, env, adminQueryPath[1], origin, allowedOrigins);
+          if (response.ok) {
+            await recordAuditEvent(env, 'query_marked_read', Number(adminQueryPath[1]));
+          }
+          return response;
         }
         if (adminQueryPath[2] === 'replies') {
           return await sendReply(request, env, adminQueryPath[1], origin, allowedOrigins);
@@ -491,5 +661,12 @@ export default {
       console.error('Inbox request failed:', error);
       return jsonResponse({ error: 'The request could not be completed. Please try again.' }, 500, origin, allowedOrigins);
     }
+  },
+  async scheduled(controller, env, context) {
+    context.waitUntil(env.DB.prepare(
+      "DELETE FROM security_audit_log WHERE date(created_at) < date('now', ?)"
+    ).bind('-' + AUDIT_RETENTION_DAYS + ' days').run());
   }
 };
+
+export { matchingTotpCounter, totpCode, verifyRequestOrigin, verifyTurnstile };

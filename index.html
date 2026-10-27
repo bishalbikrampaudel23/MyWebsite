@@ -5,12 +5,28 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Bishal Bikram Paudel | Computer Engineer &amp; Student Leader</title>
   <meta name="description" content="Portfolio of Bishal Bikram Paudel, a computer engineer focused on AI/ML and software development, and an elected student leader from Nepal.">
-  <script>document.documentElement.classList.add('js')</script>
+  <link rel="canonical" href="https://www.bishalpaudel23.com.np/">
+  <link rel="alternate" hreflang="en" href="https://www.bishalpaudel23.com.np/">
+  <link rel="alternate" hreflang="ne" href="https://www.bishalpaudel23.com.np/ne/">
+  <link rel="alternate" hreflang="x-default" href="https://www.bishalpaudel23.com.np/">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="en_US">
+  <meta property="og:locale:alternate" content="ne_NP">
+  <meta property="og:site_name" content="Bishal Bikram Paudel">
+  <meta property="og:title" content="Bishal Bikram Paudel | Computer Engineer &amp; Student Leader">
+  <meta property="og:description" content="Portfolio of Bishal Bikram Paudel, a computer engineer focused on AI/ML and software development, and an elected student leader from Nepal.">
+  <meta property="og:url" content="https://www.bishalpaudel23.com.np/">
+  <meta property="og:image" content="https://www.bishalpaudel23.com.np/myphoto.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Bishal Bikram Paudel | Computer Engineer &amp; Student Leader">
+  <meta name="twitter:description" content="Portfolio of Bishal Bikram Paudel, a computer engineer focused on AI/ML and software development, and an elected student leader from Nepal.">
+  <meta name="twitter:image" content="https://www.bishalpaudel23.com.np/myphoto.jpg">
+  <link rel="preconnect" href="https://challenges.cloudflare.com">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600;6..72,700&family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css?v=f30bfbd">
-  <script src="script.js" defer></script>
+  <script type="module" src="script.js"></script>
 </head>
 <body>
   <a class="skip" href="#main" data-i18n="skip">Skip to content</a>
@@ -231,7 +247,9 @@
             <label for="query-website" data-i18n="query.honeypot">Leave this field empty</label>
             <input id="query-website" name="website" tabindex="-1" autocomplete="off">
           </div>
-          <button class="btn primary query-submit" type="submit" data-i18n="query.submit">Send private query</button>
+          <div id="turnstile-widget"></div>
+          <p id="turnstile-status" class="query-status" role="status" aria-live="polite">Loading anti-spam check…</p>
+          <button class="btn primary query-submit" type="submit" data-i18n="query.submit" disabled>Send private query</button>
           <p class="query-status" id="query-status" role="status" aria-live="polite"></p>
         </form>
       </div>
@@ -276,7 +294,7 @@
     <p>&copy; 2026 Bishal Bikram Paudel</p>
     <a href="inbox.html" data-i18n="footer.ownerInbox">Owner inbox</a>
   </footer>
-  <script src="queries.js" defer></script>
-  <script src="preferences.js" defer></script>
+  <script type="module" src="queries.js"></script>
+  <script type="module" src="preferences.js"></script>
 </body>
 </html>

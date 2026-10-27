@@ -1,4 +1,5 @@
 (function () {
+  document.documentElement.classList.add('js');
   var loginSection = document.getElementById('login-section');
   var inboxSection = document.getElementById('inbox-section');
   var loginForm = document.getElementById('login-form');
@@ -201,12 +202,13 @@
   loginForm.addEventListener('submit', function (event) {
     event.preventDefault();
     var password = new FormData(loginForm).get('password');
+    var otp = new FormData(loginForm).get('otp');
     var button = loginForm.querySelector('button[type="submit"]');
     button.disabled = true;
     loginStatus.textContent = 'Signing in…';
     api('/admin/login', {
       method: 'POST',
-      body: JSON.stringify({ password: password })
+      body: JSON.stringify({ password: password, otp: otp })
     }).then(function () {
       loginForm.reset();
       loginStatus.textContent = '';
