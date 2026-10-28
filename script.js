@@ -1,3 +1,8 @@
+// Keep the standalone page behavior in the Vite entry graph so production
+// builds include the query form and language/theme controls.
+import './queries.js';
+import './preferences.js';
+
 (function () {
   document.documentElement.classList.add('js');
   var header = document.getElementById('top');
