@@ -24,7 +24,7 @@
     'hero.contact': 'सम्पर्क गरौँ',
     'hero.projects': 'Projects हेर्नुहोस्',
     'hero.photoAlt': 'औपचारिक पोसाकमा बिशाल बिक्रम पौडेल',
-    'about.title': 'अध्ययनले इन्जिनियर, अनुभवले Leader',
+    'about.title': 'अध्ययनले इन्जिनियर, अभ्यासले नवप्रवर्तक।',
     'about.intro': 'मैले Kantipur Engineering College बाट Computer Engineering पढेको हुँ। AI/ML, software development र practical problem-solving मा मेरो रुचि छ। निर्वाचित Student Council member का रूपमा काम गरेको, CodeCampNepal स्थापना गरेको, campus events आयोजना गरेको र community workshops सञ्चालन गरेको अनुभव छ।',
     'about.values': 'Technical कामसँगै मानिसहरूसँग जोडिएर काम गर्न मन पर्छ—उपयोगी solutions बनाउने, team लाई साथ दिने र community मा योगदान गर्ने।',
     'about.profile': 'परिचय',
