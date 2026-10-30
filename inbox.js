@@ -8,6 +8,11 @@
   var inboxList = document.getElementById('inbox-list');
   var logoutButton = document.getElementById('logout-button');
   var olderButton = document.getElementById('older-button');
+  var credentialsForm = document.getElementById('credentials-form');
+  var credentialsStatus = document.getElementById('credentials-status');
+  var recoveryForm = document.getElementById('recovery-form');
+  var recoveryStatus = document.getElementById('recovery-status');
+  var loginStatusMessage = '';
   var queries = [];
   var oldestId = null;
 
@@ -48,6 +53,8 @@
   function showLogin() {
     inboxSection.classList.add('inbox-hidden');
     loginSection.classList.remove('inbox-hidden');
+    loginStatus.textContent = loginStatusMessage;
+    loginStatusMessage = '';
   }
 
   function addText(parent, tag, text, className) {
@@ -202,19 +209,65 @@
   loginForm.addEventListener('submit', function (event) {
     event.preventDefault();
     var password = new FormData(loginForm).get('password');
-    var otp = new FormData(loginForm).get('otp');
     var button = loginForm.querySelector('button[type="submit"]');
     button.disabled = true;
     loginStatus.textContent = 'Signing in…';
     api('/admin/login', {
       method: 'POST',
-      body: JSON.stringify({ password: password, otp: otp })
+      body: JSON.stringify({ password: password })
     }).then(function () {
       loginForm.reset();
       loginStatus.textContent = '';
       showInbox();
     }).catch(function (error) {
       loginStatus.textContent = error.message;
+    }).finally(function () {
+      button.disabled = false;
+    });
+  });
+
+  credentialsForm.addEventListener('submit', function (event) {
+    event.preventDefault();
+    var button = credentialsForm.querySelector('button[type="submit"]');
+    button.disabled = true;
+    credentialsStatus.textContent = 'Updating credentials…';
+    var values = new FormData(credentialsForm);
+    api('/admin/credentials', {
+      method: 'POST',
+      body: JSON.stringify({
+        currentPassword: values.get('currentPassword'),
+        newPassword: values.get('newPassword')
+      })
+    }).then(function () {
+      credentialsForm.reset();
+      loginStatusMessage = 'Password updated. Sign in with your new password.';
+      showLogin();
+    }).catch(function (error) {
+      credentialsStatus.textContent = error.message;
+    }).finally(function () {
+      button.disabled = false;
+    });
+  });
+
+  recoveryForm.addEventListener('submit', function (event) {
+    event.preventDefault();
+    var button = recoveryForm.querySelector('button[type="submit"]');
+    button.disabled = true;
+    recoveryStatus.textContent = 'Resetting credentials…';
+    var values = new FormData(recoveryForm);
+    api('/admin/recover', {
+      method: 'POST',
+      body: JSON.stringify({
+        recoveryKey: values.get('recoveryKey'),
+        newPassword: values.get('newPassword')
+      })
+    }).then(function () {
+      recoveryForm.reset();
+      loginStatusMessage = 'Password reset. Sign in with your new password.';
+      showLogin();
+      recoveryForm.closest('details').open = false;
+    }).catch(function (error) {
+      recoveryStatus.textContent = error.message;
     }).finally(function () {
       button.disabled = false;
     });

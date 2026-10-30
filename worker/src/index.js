@@ -4,10 +4,9 @@ const LOGIN_WINDOW_SECONDS = 15 * 60;
 const MAX_LOGIN_ATTEMPTS = 5;
 const QUERY_WINDOW_SECONDS = 60 * 60;
 const MAX_QUERY_SUBMISSIONS = 5;
-const TOTP_STEP_SECONDS = 30;
-const TOTP_WINDOW_STEPS = 1;
 const TURNSTILE_ACTION = 'visitor_query';
 const AUDIT_RETENTION_DAYS = 180;
+const PASSWORD_HASH_ITERATIONS = 210000;
 
 function jsonResponse(data, status, origin, allowedOrigins) {
   const headers = {
@@ -53,57 +52,49 @@ async function sha256(value) {
   return bytesToHex(await crypto.subtle.digest('SHA-256', bytes));
 }
 
-function decodeBase32(value) {
-  const normalized = value.toUpperCase().replace(/=+$/, '');
-  if (!/^[A-Z2-7]+$/.test(normalized)) {
-    throw new Error('ADMIN_TOTP_SECRET must be a Base32 value.');
-  }
-  let bits = '';
-  for (const character of normalized) {
-    bits += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'.indexOf(character).toString(2).padStart(5, '0');
-  }
-  const bytes = [];
-  for (let offset = 0; offset + 8 <= bits.length; offset += 8) {
-    bytes.push(parseInt(bits.slice(offset, offset + 8), 2));
-  }
-  if (bytes.length < 20) {
-    throw new Error('ADMIN_TOTP_SECRET must decode to at least 20 bytes.');
-  }
-  return new Uint8Array(bytes);
+function base64Bytes(value) {
+  return Uint8Array.from(atob(value), function (character) { return character.charCodeAt(0); });
 }
 
-async function totpCode(secret, counter) {
-  const key = await crypto.subtle.importKey(
-    'raw',
-    decodeBase32(secret),
-    { name: 'HMAC', hash: 'SHA-1' },
-    false,
-    ['sign']
-  );
-  const message = new ArrayBuffer(8);
-  new DataView(message).setBigUint64(0, BigInt(counter));
-  const digest = new Uint8Array(await crypto.subtle.sign('HMAC', key, message));
-  const offset = digest[digest.length - 1] & 0x0f;
-  const binary =
-    ((digest[offset] & 0x7f) << 24) |
-    ((digest[offset + 1] & 0xff) << 16) |
-    ((digest[offset + 2] & 0xff) << 8) |
-    (digest[offset + 3] & 0xff);
-  return String(binary % 1000000).padStart(6, '0');
+async function hashPassword(password, salt) {
+  const material = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
+  const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt, iterations: PASSWORD_HASH_ITERATIONS }, material, 256);
+  return bytesToHex(bits);
 }
 
-async function matchingTotpCounter(secret, code, now = Date.now()) {
-  if (!/^\d{6}$/.test(code)) {
-    return null;
+async function activeCredentials(env) {
+  const stored = await env.DB.prepare(
+    'SELECT password_hash, password_salt FROM admin_credentials WHERE id = 1'
+  ).first();
+  if (!stored) {
+    if (!env.ADMIN_PASSWORD) return null;
+    return {
+      password: env.ADMIN_PASSWORD,
+      fingerprint: await sha256(env.ADMIN_PASSWORD)
+    };
   }
-  const currentCounter = Math.floor(now / 1000 / TOTP_STEP_SECONDS);
-  for (let offset = -TOTP_WINDOW_STEPS; offset <= TOTP_WINDOW_STEPS; offset += 1) {
-    const counter = currentCounter + offset;
-    if (counter >= 0 && constantTimeEqual(await totpCode(secret, counter), code)) {
-      return counter;
-    }
-  }
-  return null;
+  return { ...stored, fingerprint: await sha256(stored.password_hash) };
+}
+
+async function verifyPassword(credentials, password) {
+  if (credentials.password !== undefined) return constantTimeEqual(password, credentials.password);
+  const salt = base64Bytes(credentials.password_salt);
+  return constantTimeEqual(await hashPassword(password, salt), credentials.password_hash);
+}
+
+async function saveCredentials(env, password) {
+  const passwordSalt = crypto.getRandomValues(new Uint8Array(16));
+  const passwordHash = await hashPassword(password, passwordSalt);
+  const toBase64 = function (bytes) {
+    return btoa(String.fromCharCode.apply(null, new Uint8Array(bytes)));
+  };
+  await env.DB.prepare(
+    'INSERT INTO admin_credentials (id, password_hash, password_salt, totp_iv, totp_ciphertext, updated_at) ' +
+    "VALUES (1, ?, ?, '', '', ?) ON CONFLICT(id) DO UPDATE SET " +
+    'password_hash = excluded.password_hash, password_salt = excluded.password_salt, ' +
+    "totp_iv = '', totp_ciphertext = '', updated_at = excluded.updated_at"
+  ).bind(passwordHash, toBase64(passwordSalt), new Date().toISOString()).run();
+  await env.DB.prepare('DELETE FROM admin_sessions').run();
 }
 
 function constantTimeEqual(left, right) {
@@ -291,15 +282,16 @@ async function notifyOwner(env, query) {
 
 async function getSession(request, env) {
   const token = parseCookies(request)['__Secure-portfolio_session'];
-  if (!token || !env.ADMIN_PASSWORD || !env.ADMIN_TOTP_SECRET) {
+  if (!token) {
     return null;
   }
+  const credentials = await activeCredentials(env);
+  if (!credentials) return null;
   const tokenHash = await sha256(token);
-  const authFingerprint = await sha256(env.ADMIN_PASSWORD + ':' + env.ADMIN_TOTP_SECRET);
   const now = new Date().toISOString();
   const session = await env.DB.prepare(
     'SELECT token_hash FROM admin_sessions WHERE token_hash = ? AND expires_at > ? AND auth_fingerprint = ?'
-  ).bind(tokenHash, now, authFingerprint).first();
+  ).bind(tokenHash, now, credentials.fingerprint).first();
   return session ? tokenHash : null;
 }
 
@@ -383,13 +375,8 @@ async function recordFailedLogin(env, ipHash, now) {
 }
 
 async function handleLogin(request, env, origin, allowedOrigins) {
-  if (!env.ADMIN_PASSWORD || !env.ADMIN_TOTP_SECRET) {
-    return jsonResponse({ error: 'Owner sign-in is not fully configured.' }, 503, origin, allowedOrigins);
-  }
-  try {
-    decodeBase32(env.ADMIN_TOTP_SECRET);
-  } catch (error) {
-    console.error('Owner sign-in MFA secret is invalid:', error);
+  const credentials = await activeCredentials(env);
+  if (!credentials) {
     return jsonResponse({ error: 'Owner sign-in is not fully configured.' }, 503, origin, allowedOrigins);
   }
   const body = await readJson(request);
@@ -397,9 +384,8 @@ async function handleLogin(request, env, origin, allowedOrigins) {
     return jsonResponse({ error: body.error }, 400, origin, allowedOrigins);
   }
   const password = normalizeField(body.value.password);
-  const otp = normalizeField(body.value.otp);
   const ipHash = await sha256(
-    (request.headers.get('CF-Connecting-IP') || 'unknown') + ':' + env.ADMIN_PASSWORD
+    (request.headers.get('CF-Connecting-IP') || 'unknown') + ':' + credentials.fingerprint
   );
   const now = Math.floor(Date.now() / 1000);
   await env.DB.prepare(
@@ -416,26 +402,16 @@ async function handleLogin(request, env, origin, allowedOrigins) {
     return jsonResponse({ error: 'Too many sign-in attempts. Please wait 15 minutes and try again.' }, 429, origin, allowedOrigins);
   }
 
-  const totpCounter = await matchingTotpCounter(env.ADMIN_TOTP_SECRET, otp);
-  if (!constantTimeEqual(password, env.ADMIN_PASSWORD) || totpCounter === null) {
+  if (!await verifyPassword(credentials, password)) {
     await recordFailedLogin(env, ipHash, now);
     await recordAuditEvent(env, 'login_failed');
     return jsonResponse({ error: 'Incorrect password.' }, 401, origin, allowedOrigins);
   }
 
-  const acceptedCounter = await env.DB.prepare(
-    'UPDATE admin_totp_state SET last_counter = ? WHERE id = 1 AND last_counter < ? RETURNING last_counter'
-  ).bind(totpCounter, totpCounter).first();
-  if (!acceptedCounter) {
-    await recordFailedLogin(env, ipHash, now);
-    await recordAuditEvent(env, 'login_replay_rejected');
-    return jsonResponse({ error: 'That authenticator code has already been used. Wait for a new code and try again.' }, 401, origin, allowedOrigins);
-  }
-
   await env.DB.prepare('DELETE FROM login_attempts WHERE ip_hash = ?').bind(ipHash).run();
   const token = createToken();
   const tokenHash = await sha256(token);
-  const authFingerprint = await sha256(env.ADMIN_PASSWORD + ':' + env.ADMIN_TOTP_SECRET);
+  const authFingerprint = credentials.fingerprint;
   const expiresAt = new Date(Date.now() + SESSION_SECONDS * 1000).toISOString();
   await env.DB.prepare('DELETE FROM admin_sessions WHERE expires_at <= ?').bind(new Date().toISOString()).run();
   await env.DB.prepare(
@@ -449,6 +425,57 @@ async function handleLogin(request, env, origin, allowedOrigins) {
   const response = jsonResponse({ authenticated: true }, 200, origin, allowedOrigins);
   response.headers.append('Set-Cookie', sessionCookie(token, SESSION_SECONDS));
   return response;
+}
+
+async function handleCredentialChange(request, env, origin, allowedOrigins) {
+  const session = await getSession(request, env);
+  if (!session) return jsonResponse({ error: 'Please sign in to change credentials.' }, 401, origin, allowedOrigins);
+  const body = await readJson(request);
+  if (body.error) return jsonResponse({ error: body.error }, 400, origin, allowedOrigins);
+  const currentPassword = normalizeField(body.value.currentPassword);
+  const newPassword = normalizeField(body.value.newPassword);
+  const current = await activeCredentials(env);
+  if (!current || !await verifyPassword(current, currentPassword)) {
+    return jsonResponse({ error: 'Current password is incorrect.' }, 401, origin, allowedOrigins);
+  }
+  if (newPassword.length < 20 || newPassword.length > 256) {
+    return jsonResponse({ error: 'Use a new password between 20 and 256 characters.' }, 400, origin, allowedOrigins);
+  }
+  await saveCredentials(env, newPassword);
+  return jsonResponse({ changed: true }, 200, origin, allowedOrigins);
+}
+
+async function handleCredentialRecovery(request, env, origin, allowedOrigins) {
+  if (!env.ADMIN_RECOVERY_KEY || !/^[a-f0-9]{64}$/i.test(env.ADMIN_RECOVERY_KEY)) {
+    return jsonResponse({ error: 'Account recovery is not configured. Contact the site owner.' }, 503, origin, allowedOrigins);
+  }
+  const body = await readJson(request);
+  if (body.error) return jsonResponse({ error: body.error }, 400, origin, allowedOrigins);
+  const recoveryKey = normalizeField(body.value.recoveryKey);
+  const newPassword = normalizeField(body.value.newPassword);
+  const ipHash = await sha256(
+    (request.headers.get('CF-Connecting-IP') || 'unknown') + ':' + env.ADMIN_RECOVERY_KEY
+  );
+  const now = Math.floor(Date.now() / 1000);
+  await env.DB.prepare('DELETE FROM login_attempts WHERE window_started <= ?')
+    .bind(now - LOGIN_WINDOW_SECONDS).run();
+  const attempt = await env.DB.prepare(
+    'SELECT attempts, window_started FROM login_attempts WHERE ip_hash = ?'
+  ).bind(ipHash).first();
+  if (attempt && attempt.window_started > now - LOGIN_WINDOW_SECONDS && attempt.attempts >= MAX_LOGIN_ATTEMPTS) {
+    return jsonResponse({ error: 'Too many recovery attempts. Please wait 15 minutes and try again.' }, 429, origin, allowedOrigins);
+  }
+  if (!constantTimeEqual(recoveryKey, env.ADMIN_RECOVERY_KEY)) {
+    await recordFailedLogin(env, ipHash, now);
+    await recordAuditEvent(env, 'login_failed');
+    return jsonResponse({ error: 'Recovery key is incorrect.' }, 401, origin, allowedOrigins);
+  }
+  if (newPassword.length < 20 || newPassword.length > 256) {
+    return jsonResponse({ error: 'Use a new password between 20 and 256 characters.' }, 400, origin, allowedOrigins);
+  }
+  await saveCredentials(env, newPassword);
+  await env.DB.prepare('DELETE FROM login_attempts WHERE ip_hash = ?').bind(ipHash).run();
+  return jsonResponse({ changed: true }, 200, origin, allowedOrigins);
 }
 
 async function handleAdminQueries(env, origin, allowedOrigins, beforeId) {
@@ -616,6 +643,12 @@ export default {
           ? jsonResponse({ authenticated: true }, 200, origin, allowedOrigins)
           : jsonResponse({ error: 'Please sign in to view the inbox.' }, 401, origin, allowedOrigins);
       }
+      if (path === '/api/admin/credentials' && request.method === 'POST') {
+        return await handleCredentialChange(request, env, origin, allowedOrigins);
+      }
+      if (path === '/api/admin/recover' && request.method === 'POST') {
+        return await handleCredentialRecovery(request, env, origin, allowedOrigins);
+      }
       if (path === '/api/admin/logout' && request.method === 'POST') {
         const session = await getSession(request, env);
         if (session) {
@@ -669,4 +702,4 @@ export default {
   }
 };
 
-export { matchingTotpCounter, totpCode, verifyRequestOrigin, verifyTurnstile };
+export { verifyRequestOrigin, verifyTurnstile };

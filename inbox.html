@@ -31,19 +31,35 @@
             <label for="admin-password">Inbox password</label>
             <input id="admin-password" name="password" type="password" autocomplete="current-password" required>
           </div>
-          <div>
-            <label for="admin-otp">Authenticator code</label>
-            <input id="admin-otp" name="otp" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" minlength="6" maxlength="6" required>
-          </div>
           <button type="submit">Sign in</button>
           <p class="inbox-status" id="login-status" role="status" aria-live="polite"></p>
         </form>
+        <details class="credential-settings">
+          <summary>Forgot password?</summary>
+          <p>Use your separate recovery key to set a new inbox password. This signs out all inbox sessions.</p>
+          <form id="recovery-form">
+            <div><label for="recovery-key">Recovery key</label><input id="recovery-key" name="recoveryKey" type="password" autocomplete="off" required></div>
+            <div><label for="recovery-new-password">New inbox password</label><input id="recovery-new-password" name="newPassword" type="password" autocomplete="new-password" minlength="20" maxlength="256" required></div>
+            <button type="submit">Reset password</button>
+            <p class="inbox-status" id="recovery-status" role="status" aria-live="polite"></p>
+          </form>
+        </details>
       </section>
       <section id="inbox-section" class="inbox-hidden" aria-labelledby="inbox-title">
         <div class="inbox-toolbar">
           <h2 id="inbox-title">Messages</h2>
           <button type="button" id="logout-button">Sign out</button>
         </div>
+        <details class="inbox-login credential-settings">
+          <summary>Change inbox password</summary>
+          <p>Changing your password will sign out all inbox sessions. Use a password with at least 20 characters.</p>
+          <form id="credentials-form">
+            <div><label for="current-password">Current inbox password</label><input id="current-password" name="currentPassword" type="password" autocomplete="current-password" required></div>
+            <div><label for="new-password">New inbox password</label><input id="new-password" name="newPassword" type="password" autocomplete="new-password" minlength="20" maxlength="256" required></div>
+            <button type="submit">Update password</button>
+            <p class="inbox-status" id="credentials-status" role="status" aria-live="polite"></p>
+          </form>
+        </details>
         <p class="inbox-status" id="inbox-status" role="status" aria-live="polite"></p>
         <div class="inbox-list" id="inbox-list"></div>
         <button class="query-action secondary inbox-hidden" type="button" id="older-button">Load older queries</button>

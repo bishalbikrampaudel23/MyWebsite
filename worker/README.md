@@ -25,40 +25,35 @@ Visitors can send private messages from **General Queries**. Cloudflare D1 store
    npx wrangler d1 execute portfolio-queries --remote --file=migrations/0002_query_submission_limits.sql
    npx wrangler d1 execute portfolio-queries --remote --file=migrations/0003_owner_mfa.sql
    npx wrangler d1 execute portfolio-queries --remote --file=migrations/0004_security_audit_log.sql
+   npx wrangler d1 execute portfolio-queries --remote --file=migrations/0005_admin_credential_rotation.sql
    ```
 
 5. Verify `ADMIN_EMAIL`, `FROM_EMAIL`, `ALLOWED_ORIGINS`, and the Worker route in `wrangler.toml`. `FROM_EMAIL` must use a domain verified with Resend. Ensure every public website origin is listed exactly in `ALLOWED_ORIGINS`.
-6. Create a Cloudflare Turnstile widget for both portfolio hostnames (`www.bishalpaudel23.com.np` and `bishalpaudel23.com.np`). Copy its public site key into `TURNSTILE_SITE_KEY` in `wrangler.toml`, and set the private secret with Wrangler. Use a unique, randomly generated owner password with at least 20 characters. Generate a 160-bit Base32 TOTP secret on your own computer, add that secret to an authenticator app, and keep a secure backup. Do not use an online QR-code generator:
+6. Create a Cloudflare Turnstile widget for both portfolio hostnames (`www.bishalpaudel23.com.np` and `bishalpaudel23.com.np`). Copy its public site key into `TURNSTILE_SITE_KEY` in `wrangler.toml`, and set the private secret with Wrangler. Use a unique, randomly generated owner password with at least 20 characters:
 
    ```powershell
    npx wrangler secret put TURNSTILE_SECRET_KEY
    npx wrangler secret put ADMIN_PASSWORD
-   npx wrangler secret put ADMIN_TOTP_SECRET
+   npx wrangler secret put ADMIN_RECOVERY_KEY
    npx wrangler secret put RESEND_API_KEY
    ```
 
-   To generate a Base32 secret in PowerShell, run this Node command, then use its output when Wrangler prompts for `ADMIN_TOTP_SECRET`:
-
-   ```powershell
-   node -e "const b=require('node:crypto').randomBytes(20); let bits=''; for(const x of b) bits+=x.toString(2).padStart(8,'0'); let s=''; for(let i=0;i<bits.length;i+=5) s+='ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'[parseInt(bits.slice(i,i+5).padEnd(5,'0'),2)]; console.log(s)"
-   ```
-
-   Keep all secret values out of the website and repository. Use a TOTP-compatible authenticator with a 30-second period, six digits, and SHA-1.
+   Generate and securely save the recovery key before setting it. Use `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"`; keep it in a password manager. For local Wrangler development, copy `worker/.env.example` to `worker/.env` and fill in local-only values. `.env` files are ignored by Git. Production values must be set as Cloudflare Worker secrets with Wrangler; do not put production values in GitHub or the static website.
 7. Deploy the Worker:
 
    ```powershell
    npx wrangler deploy
    ```
 
-8. Publish the generated `dist` directory to GitHub Pages. The production build generates the crawlable Nepali page at `/ne/` and copies `robots.txt` and `sitemap.xml` from `public`. Then open `https://www.bishalpaudel23.com.np/inbox.html`, sign in with the `ADMIN_PASSWORD` and a fresh authenticator code, and test sending a query and replying to it.
+8. Publish the generated `dist` directory to GitHub Pages. The production build generates the crawlable Nepali page at `/ne/` and copies `robots.txt` and `sitemap.xml` from `public`. Then open `https://www.bishalpaudel23.com.np/inbox.html`, sign in with the `ADMIN_PASSWORD`, and test sending a query and replying to it.
 
-The inbox requires both the password and a six-digit TOTP code. Each code can be used only once; codes have a one-step clock-skew allowance. The session cookie is HTTP-only, secure, and expires after eight hours. Session records are tied to the current password and TOTP secret, so rotating either secret immediately invalidates all existing sessions. The Worker limits failed sign-in attempts per visitor IP, rate-limits the query endpoint to 10 requests per minute at the edge and five valid submissions per IP per hour in D1, and uses Turnstile plus a honeypot to reduce automated form submissions. Turnstile tokens are verified server-side for the expected hostname and action; configure both the public site key and private secret before deploying. The D1 limiter stores only a SHA-256 hash of the visitor IP, keyed with the existing `ADMIN_PASSWORD` secret; it does not store raw IP addresses. SQL statements use D1 prepared statements and bound values. The Worker also validates and bounds submissions, and only permits requests from the configured website origins. POST requests require the exact allowed `Origin`, JSON content type, and (when present) a same-origin Fetch Metadata header; the admin cookie is `SameSite=Lax`. New queries are saved even if the notification email fails; the website will report that the email alert could not be sent.
+The inbox requires the password only. Password changes require the current password, and resetting a forgotten password requires the separate `ADMIN_RECOVERY_KEY`; either operation signs out all sessions. The session cookie is HTTP-only, secure, and expires after eight hours. Session records are tied to the current password, so rotating it invalidates all existing sessions. The Worker limits failed sign-in attempts per visitor IP, rate-limits the query endpoint to 10 requests per minute at the edge and five valid submissions per IP per hour in D1, and uses Turnstile plus a honeypot to reduce automated form submissions. Turnstile tokens are verified server-side for the expected hostname and action; configure both the public site key and private secret before deploying. The D1 limiter stores only a SHA-256 hash of the visitor IP, keyed with the existing `ADMIN_PASSWORD` secret; it does not store raw IP addresses. SQL statements use D1 prepared statements and bound values. The Worker also validates and bounds submissions, and only permits requests from the configured website origins. POST requests require the exact allowed `Origin`, JSON content type, and (when present) a same-origin Fetch Metadata header; the admin cookie is `SameSite=Lax`. New queries are saved even if the notification email fails; the website will report that the email alert could not be sent.
 
-The D1 audit log records login success/failure, TOTP replay rejection, logout, query submission, and inbox read/reply events. It deliberately omits IP addresses, email addresses, message bodies, passwords, TOTP codes, and session tokens. Entries older than 180 days are removed by the Worker’s monthly scheduled trigger. Audit events are operational records, not tamper-proof evidence; protect Cloudflare account access and review Worker/D1 access logs as well.
+The D1 audit log records login success/failure, logout, query submission, and inbox read/reply events. It deliberately omits IP addresses, email addresses, message bodies, passwords, and session tokens. Entries older than 180 days are removed by the Worker’s monthly scheduled trigger. Audit events are operational records, not tamper-proof evidence; protect Cloudflare account access and review Worker/D1 access logs as well.
 
 ## Secret rotation, HSTS, and security headers
 
-Rotate the owner password with `npx wrangler secret put ADMIN_PASSWORD`. Existing inbox sessions stop working as soon as the secret is updated; no manual session-table cleanup is required. Rotate `ADMIN_TOTP_SECRET` the same way if the authenticator is lost or compromised, and enroll the new secret in the replacement authenticator. Each secret update must complete its Worker deployment before the new value is active. Never send secrets in chat or commit them.
+The signed-in inbox has **Change inbox password**. For a forgotten password, use **Forgot password?** on the sign-in page and enter the separately saved `ADMIN_RECOVERY_KEY`; this resets the password and signs out every session. If that recovery key is lost, use Cloudflare account access to set a new one with `npx wrangler secret put ADMIN_RECOVERY_KEY`, then retry the reset. Passwords are stored as salted PBKDF2 hashes. Never send secrets in chat or commit them.
 
 The Worker adds HSTS, no-store, CSP, frame, MIME-sniffing, referrer, and permissions headers to API responses. For the static website, enable HSTS in Cloudflare's **SSL/TLS → Edge Certificates → HTTP Strict Transport Security (HSTS)** settings for `www.bishalpaudel23.com.np`. Confirm HTTPS and redirects work first; start with a short max-age, then raise it to 12 months after verification. Leave `includeSubDomains` and `preload` off unless every affected hostname is guaranteed to support HTTPS. HSTS is sticky in browsers, so disabling HTTPS after enabling it can make the domain unavailable until the policy expires.
 
@@ -94,7 +89,7 @@ npx wrangler d1 execute portfolio-queries-restore --remote --file="C:\path\to\yo
 
 Verify the restored tables and sample records, then update the Worker D1 binding to the new database ID and deploy. Keep the prior database until the restored site is confirmed healthy. The export includes private visitor data, so protect and securely remove temporary copies when no longer needed.
 
-For an existing deployment, apply migrations `0002_query_submission_limits.sql`, `0003_owner_mfa.sql`, and `0004_security_audit_log.sql`, set `TURNSTILE_SITE_KEY` in `wrangler.toml`, and set `TURNSTILE_SECRET_KEY` with Wrangler before deploying the Worker. The `QUERY_RATE_LIMITER` binding and monthly audit-retention trigger are configured in `wrangler.toml`.
+For an existing deployment, apply migrations `0002_query_submission_limits.sql` through `0005_admin_credential_rotation.sql`, set `TURNSTILE_SITE_KEY` in `wrangler.toml`, and set `TURNSTILE_SECRET_KEY` and `ADMIN_RECOVERY_KEY` with Wrangler before deploying the Worker. The `QUERY_RATE_LIMITER` binding and monthly audit-retention trigger are configured in `wrangler.toml`.
 
 ## Email provider
 

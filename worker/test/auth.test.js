@@ -1,19 +1,11 @@
 import assert from "node:assert/strict";
 import { access, readFile } from "node:fs/promises";
 import test from "node:test";
-import worker, {
-  matchingTotpCounter,
-  totpCode,
-  verifyRequestOrigin,
-  verifyTurnstile,
-} from "../src/index.js";
-
-const secret = "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ";
+import worker, { verifyRequestOrigin, verifyTurnstile } from "../src/index.js";
 
 function createDatabase() {
   const sessions = new Map();
   const auditEvents = [];
-  let lastTotpCounter = -1;
 
   const DB = {
     prepare(sql) {
@@ -26,14 +18,6 @@ function createDatabase() {
         async first() {
           if (sql.includes("SELECT attempts, window_started FROM login_attempts")) {
             return null;
-          }
-          if (sql.includes("UPDATE admin_totp_state")) {
-            const [counter] = parameters;
-            if (counter <= lastTotpCounter) {
-              return null;
-            }
-            lastTotpCounter = counter;
-            return { last_counter: counter };
           }
           if (sql.includes("SELECT token_hash FROM admin_sessions")) {
             const [tokenHash, expiresAt, fingerprint] = parameters;
@@ -71,15 +55,6 @@ function createDatabase() {
   };
   return { DB, auditEvents };
 }
-
-test("TOTP follows RFC 6238 SHA-1 six-digit vectors", async () => {
-  assert.equal(await totpCode(secret, 1), "287082");
-});
-
-test("TOTP accepts only a code within the configured time window", async () => {
-  assert.equal(await matchingTotpCounter(secret, "287082", 59_000), 1);
-  assert.equal(await matchingTotpCounter(secret, "000000", 59_000), null);
-});
 
 test("Turnstile validates response success, hostname, and action", async (t) => {
   const originalFetch = globalThis.fetch;
@@ -155,15 +130,13 @@ test("POST requests require trusted same-origin JSON requests", async () => {
   ]), false);
 });
 
-test("credential rotation invalidates an existing inbox session", async () => {
+test("password-only sign-in rejects an incorrect password", async () => {
   const { DB, auditEvents } = createDatabase();
   const env = {
     ADMIN_PASSWORD: "original-long-password",
-    ADMIN_TOTP_SECRET: secret,
     ALLOWED_ORIGINS: "https://portfolio.example",
     DB,
   };
-  const code = await totpCode(secret, Math.floor(Date.now() / 30_000));
   const login = await worker.fetch(new Request("https://portfolio.example/api/admin/login", {
     method: "POST",
     headers: {
@@ -171,34 +144,22 @@ test("credential rotation invalidates an existing inbox session", async () => {
       "CF-Connecting-IP": "192.0.2.1",
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ password: env.ADMIN_PASSWORD, otp: code }),
+    body: JSON.stringify({ password: env.ADMIN_PASSWORD }),
   }), env);
 
   assert.equal(login.status, 200);
   assert.ok(auditEvents.includes("login_succeeded"));
-  const cookie = login.headers.get("Set-Cookie").split(";")[0];
-  const replay = await worker.fetch(new Request("https://portfolio.example/api/admin/login", {
+  const denied = await worker.fetch(new Request("https://portfolio.example/api/admin/login", {
     method: "POST",
     headers: {
       Origin: "https://portfolio.example",
       "CF-Connecting-IP": "192.0.2.1",
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ password: env.ADMIN_PASSWORD, otp: code }),
+    body: JSON.stringify({ password: "wrong-password" }),
   }), env);
-  assert.equal(replay.status, 401);
-  assert.ok(auditEvents.includes("login_replay_rejected"));
-
-  const authenticated = await worker.fetch(new Request("https://portfolio.example/api/admin/session", {
-    headers: { Cookie: cookie },
-  }), env);
-  assert.equal(authenticated.status, 200);
-
-  env.ADMIN_PASSWORD = "rotated-long-password";
-  const revoked = await worker.fetch(new Request("https://portfolio.example/api/admin/session", {
-    headers: { Cookie: cookie },
-  }), env);
-  assert.equal(revoked.status, 401);
+  assert.equal(denied.status, 401);
+  assert.ok(auditEvents.includes("login_failed"));
 });
 
 test("Worker API responses include security headers", async () => {
