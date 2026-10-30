@@ -45,7 +45,7 @@ Visitors can send private messages from **General Queries**. Cloudflare D1 store
    npx wrangler deploy
    ```
 
-8. Publish the generated `dist` directory to GitHub Pages. The production build generates the crawlable Nepali page at `/ne/` and copies `robots.txt` and `sitemap.xml` from `public`. Then open `https://www.bishalpaudel23.com.np/inbox.html`, sign in with the `ADMIN_PASSWORD`, and test sending a query and replying to it.
+8. Publish the generated `dist` directory to GitHub Pages. The production build generates the crawlable Nepali page at `/ne.html` (and a nested alias at `/ne/`) and copies `robots.txt` and `sitemap.xml` from `public`. Then open `https://www.bishalpaudel23.com.np/inbox.html`, sign in with the `ADMIN_PASSWORD`, and test sending a query and replying to it.
 
 The inbox requires the password only. Password changes require the current password, and resetting a forgotten password requires the separate `ADMIN_RECOVERY_KEY`; either operation signs out all sessions. The session cookie is HTTP-only, secure, and expires after eight hours. Session records are tied to the current password, so rotating it invalidates all existing sessions. The Worker limits failed sign-in attempts per visitor IP, rate-limits the query endpoint to 10 requests per minute at the edge and five valid submissions per IP per hour in D1, and uses Turnstile plus a honeypot to reduce automated form submissions. Turnstile tokens are verified server-side for the expected hostname and action; configure both the public site key and private secret before deploying. The D1 limiter stores only a SHA-256 hash of the visitor IP, keyed with the existing `ADMIN_PASSWORD` secret; it does not store raw IP addresses. SQL statements use D1 prepared statements and bound values. The Worker also validates and bounds submissions, and only permits requests from the configured website origins. POST requests require the exact allowed `Origin`, JSON content type, and (when present) a same-origin Fetch Metadata header; the admin cookie is `SameSite=Lax`. New queries are saved even if the notification email fails; the website will report that the email alert could not be sent.
 
@@ -57,7 +57,7 @@ The signed-in inbox has **Change inbox password**. For a forgotten password, use
 
 The Worker adds HSTS, no-store, CSP, frame, MIME-sniffing, referrer, and permissions headers to API responses. For the static website, enable HSTS in Cloudflare's **SSL/TLS → Edge Certificates → HTTP Strict Transport Security (HSTS)** settings for `www.bishalpaudel23.com.np`. Confirm HTTPS and redirects work first; start with a short max-age, then raise it to 12 months after verification. Leave `includeSubDomains` and `preload` off unless every affected hostname is guaranteed to support HTTPS. HSTS is sticky in browsers, so disabling HTTPS after enabling it can make the domain unavailable until the policy expires.
 
-The public pages are served by GitHub Pages, so apply the other response-header rules in the Cloudflare dashboard for the proxied website host and verify them on `/`, `/ne/`, and `/inbox.html`. The Turnstile domains below must be allowed by CSP:
+The public pages are served by GitHub Pages, so apply the other response-header rules in the Cloudflare dashboard for the proxied website host and verify them on `/`, `/ne.html`, and `/inbox.html`. The Turnstile domains below must be allowed by CSP:
 
 | Header | Value |
 | --- | --- |

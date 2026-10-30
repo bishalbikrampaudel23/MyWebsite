@@ -4,7 +4,8 @@ import vm from "node:vm";
 const root = new URL("../", import.meta.url);
 const sourcePath = new URL("preferences.js", root);
 const pagePath = new URL("dist/index.html", root);
-const outputPath = new URL("dist/ne/index.html", root);
+const outputPath = new URL("dist/ne.html", root);
+const nestedOutputPath = new URL("dist/ne/index.html", root);
 const translationSource = await readFile(sourcePath, "utf8");
 const translationMatch = translationSource.match(
   /var translations = (\{[\s\S]*?\n  \});/,
@@ -81,7 +82,7 @@ html = html.replace(
 );
 html = html.replace(
   /<link rel="canonical" href="[^"]*">/,
-  '<link rel="canonical" href="https://www.bishalpaudel23.com.np/ne/">',
+  '<link rel="canonical" href="https://www.bishalpaudel23.com.np/ne.html">',
 );
 html = html.replace(
   /<meta property="og:locale" content="[^"]*">/,
@@ -97,7 +98,7 @@ html = html.replace(
 );
 html = html.replace(
   /<meta property="og:url" content="[^"]*">/,
-  '<meta property="og:url" content="https://www.bishalpaudel23.com.np/ne/">',
+  '<meta property="og:url" content="https://www.bishalpaudel23.com.np/ne.html">',
 );
 html = html.replace(
   /<meta name="twitter:title" content="[^"]*">/,
@@ -121,4 +122,7 @@ html = html.replace(
 );
 
 await mkdir(new URL("dist/ne/", root), { recursive: true });
-await writeFile(outputPath, html);
+await Promise.all([
+  writeFile(outputPath, html),
+  writeFile(nestedOutputPath, html),
+]);

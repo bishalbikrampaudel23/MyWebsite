@@ -186,15 +186,19 @@ test("public config endpoint exposes only the Turnstile site key", async () => {
 
 test("production build contains crawlable English and Nepali pages", async () => {
   const english = await readFile(new URL("../../dist/index.html", import.meta.url), "utf8");
-  const nepali = await readFile(new URL("../../dist/ne/index.html", import.meta.url), "utf8");
+  const nepali = await readFile(new URL("../../dist/ne.html", import.meta.url), "utf8");
+  const nestedNepali = await readFile(new URL("../../dist/ne/index.html", import.meta.url), "utf8");
   assert.match(english, /rel="canonical" href="https:\/\/www\.bishalpaudel23\.com\.np\/"/);
-  assert.match(english, /hreflang="ne" href="https:\/\/www\.bishalpaudel23\.com\.np\/ne\/"/);
+  assert.match(english, /hreflang="ne" href="https:\/\/www\.bishalpaudel23\.com\.np\/ne\.html"/);
   assert.match(nepali, /<html lang="ne">/);
-  assert.match(nepali, /rel="canonical" href="https:\/\/www\.bishalpaudel23\.com\.np\/ne\/"/);
+  assert.match(nepali, /rel="canonical" href="https:\/\/www\.bishalpaudel23\.com\.np\/ne\.html"/);
   assert.match(nepali, /मैले Kantipur Engineering College बाट Computer Engineering पढेको हुँ/);
-  await access(new URL("../../dist/ne/index.html", import.meta.url));
+  assert.equal(nestedNepali, nepali);
+  await access(new URL("../../dist/ne.html", import.meta.url));
   const scripts = [...english.matchAll(/<script[^>]+src="([^"]+)"/g)];
   assert.ok(scripts.length >= 1);
+  const mainScript = await readFile(new URL(scripts[0][1].replace(/^\//, ""), new URL("../../dist/", import.meta.url)), "utf8");
+  assert.match(mainScript, /\/ne\.html/);
   for (const [, path] of scripts) {
     await access(new URL(path.replace(/^\//, ""), new URL("../../dist/", import.meta.url)));
   }

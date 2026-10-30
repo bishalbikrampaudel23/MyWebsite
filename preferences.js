@@ -206,7 +206,7 @@
   };
 
   languageToggle.addEventListener('click', function () {
-    window.location.assign(language === 'en' ? '/ne/index.html' : '/');
+    window.location.assign(language === 'en' ? '/ne.html' : '/');
   });
 
   themeToggle.addEventListener('click', function () {
