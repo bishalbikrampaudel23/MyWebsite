@@ -7,6 +7,10 @@ workers_dev = false
 pattern = "www.bishalpaudel23.com.np/api/*"
 zone_name = "bishalpaudel23.com.np"
 
+[[routes]]
+pattern = "bishalpaudel23.com.np/api/*"
+zone_name = "bishalpaudel23.com.np"
+
 [[d1_databases]]
 binding = "DB"
 database_name = "portfolio-queries"
